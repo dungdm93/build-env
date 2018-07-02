@@ -1,0 +1,7 @@
+# File locations:
+#   - /etc/gemrc
+#   - /usr/local/etc/gemrc
+#   - $HOME/.gemrc
+# See: http://guides.rubygems.org/command-reference/#gem-environment
+---
+gem: --no-document    # --no-ri --no-rdoc

@@ -1,0 +1,16 @@
+FROM  ruby:2.4-alpine3.6
+LABEL maintainer="Dũng Đặng Minh <dungdm93@gmail.com>"
+
+COPY ./gemrc /etc/gemrc
+RUN set -eux; \
+    apk add --no-cache curl git; \
+    gem install dpl
+
+####### INSTRUCTIONS #######
+# Build image:
+# $ docker build -t dungdm93/dpl:alpine3.6 -f Dockerfile.alpine .
+# Run image:
+# $ docker run -it --rm -v $(pwd):/app --name dpl dungdm93/dpl:alpine3.6 sh
+# # cd /app
+# # dpl --provider=heroku --api-key=`heroku auth:token`
+############################
