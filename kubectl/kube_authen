@@ -1,0 +1,69 @@
+#!/bin/bash
+# Resources
+#  + https://gitlab.com/gitlab-examples/kubernetes-deploy
+#  + https://about.gitlab.com/2017/01/23/video-tutorial-idea-to-production-on-google-container-engine-gke/
+
+ensure_deploy_variables() {
+  if [[ -z "$CI_ENVIRONMENT_SLUG" ]]; then
+    cat <<EOF
+You're not running in deployment jobs.
+Specify `environment` field in .gitlab-ci.yml job to continue...
+See more:
+  + https://docs.gitlab.com/ce/ci/environments.html
+  + https://docs.gitlab.com/ce/ci/yaml/#environment
+EOF
+    exit 1
+  fi
+
+    if [[ -z "$KUBE_URL" ]]; then
+    echo "Missing KUBE_URL."
+    exit 1
+  fi
+
+  if [[ -z "$KUBE_NAMESPACE" ]]; then
+    echo "Missing KUBE_NAMESPACE."
+    exit 1
+  fi
+
+  if [ -z "$KUBE_TOKEN" ] || [ -z "$KUBE_CA_PEM_FILE" ]; then
+    cat <<EOF
+Missing Kubernetes credentials.
+Check again in Settings > Integrations > Kubernetes
+See more:
+  + https://docs.gitlab.com/ce/user/project/integrations/kubernetes.html
+EOF
+    exit 1
+  fi
+}
+
+create_kubeconfig() {
+  echo "Generating kubeconfig..."
+  kubectl config set-cluster     gitlab-deploy \
+    --server="$KUBE_URL" \
+    --certificate-authority=${KUBE_CA_PEM_FILE}
+
+  kubectl config set-credentials gitlab-deploy \
+    --token="$KUBE_TOKEN"\
+    --certificate-authority=${KUBE_CA_PEM_FILE}
+
+  kubectl config set-context     gitlab-deploy \
+    --cluster=gitlab-deploy --user=gitlab-deploy \
+    --namespace="$KUBE_NAMESPACE"
+
+  kubectl config use-context gitlab-deploy
+  echo ""
+}
+
+ping_kube() {
+  if kubectl version > /dev/null; then
+    echo "Kubernetes is online!"
+    echo ""
+  else
+    echo "Cannot connect to Kubernetes."
+    return 1
+  fi
+}
+
+ensure_deploy_variables
+create_kubeconfig
+ping_kube
