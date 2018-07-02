@@ -70,8 +70,9 @@ Examples:
   $ contrib/inventory/gce.py --host my_instance
 
 Author: Eric Johnson <erjohnso@google.com>
-Contributors: Matt Hite <mhite@hotmail.com>, Tom Melendez <supertom@google.com>
-Version: 0.0.3
+Contributors: Matt Hite <mhite@hotmail.com>, Tom Melendez <supertom@google.com>,
+              John Roach <johnroach1985@gmail.com>
+Version: 0.0.4
 '''
 
 try:
@@ -92,7 +93,10 @@ import argparse
 
 from time import time
 
-import ConfigParser
+if sys.version_info >= (3, 0):
+    import configparser
+else:
+    import ConfigParser as configparser
 
 import logging
 logging.getLogger('libcloud.common.google').addHandler(logging.NullHandler())
@@ -164,7 +168,7 @@ class GceInventory(object):
         # Read settings and parse CLI arguments
         self.parse_cli_args()
         self.config = self.get_config()
-        self.driver = self.get_gce_driver()
+        self.drivers = self.get_gce_drivers()
         self.ip_type = self.get_inventory_options()
         if self.ip_type:
             self.ip_type = self.ip_type.lower()
@@ -213,12 +217,13 @@ class GceInventory(object):
         # This provides empty defaults to each key, so that environment
         # variable configuration (as opposed to INI configuration) is able
         # to work.
-        config = ConfigParser.SafeConfigParser(defaults={
+        config = configparser.SafeConfigParser(defaults={
             'gce_service_account_email_address': '',
             'gce_service_account_pem_file_path': '',
             'gce_project_id': '',
             'gce_zone': '',
             'libcloud_secrets': '',
+            'instance_tags': '',
             'inventory_ip_type': '',
             'cache_path': '~/.ansible/tmp',
             'cache_max_age': '300'
@@ -244,6 +249,16 @@ class GceInventory(object):
             if states:
                 self.instance_states = states.split(',')
 
+        # Set the instance_tags filter, env var overrides config from file
+        # and cli param overrides all
+        if self.args.instance_tags:
+            self.instance_tags = self.args.instance_tags
+        else:
+            self.instance_tags = os.environ.get(
+                'GCE_INSTANCE_TAGS', config.get('gce', 'instance_tags'))
+        if self.instance_tags:
+            self.instance_tags = self.instance_tags.split(',')
+
         # Caching
         cache_path = config.get('cache', 'cache_path')
         cache_max_age = config.getint('cache', 'cache_max_age')
@@ -263,18 +278,19 @@ class GceInventory(object):
         ip_type = os.environ.get('INVENTORY_IP_TYPE', ip_type)
         return ip_type
 
-    def get_gce_driver(self):
-        """Determine the GCE authorization settings and return a
-        libcloud driver.
+    def get_gce_drivers(self):
+        """Determine the GCE authorization settings and return a list of
+        libcloud drivers.
         """
         # Attempt to get GCE params from a configuration file, if one
         # exists.
         secrets_path = self.config.get('gce', 'libcloud_secrets')
         secrets_found = False
+
         try:
             import secrets
-            args = list(getattr(secrets, 'GCE_PARAMS', []))
-            kwargs = getattr(secrets, 'GCE_KEYWORD_PARAMS', {})
+            args = list(secrets.GCE_PARAMS)
+            kwargs = secrets.GCE_KEYWORD_PARAMS
             secrets_found = True
         except:
             pass
@@ -305,15 +321,21 @@ class GceInventory(object):
         # other configuration; process those into our args and kwargs.
         args[0] = os.environ.get('GCE_EMAIL', args[0])
         args[1] = os.environ.get('GCE_PEM_FILE_PATH', args[1])
+        args[1] = os.environ.get('GCE_CREDENTIALS_FILE_PATH', args[1])
+
         kwargs['project'] = os.environ.get('GCE_PROJECT', kwargs['project'])
         kwargs['datacenter'] = os.environ.get('GCE_ZONE', kwargs['datacenter'])
 
-        # Retrieve and return the GCE driver.
-        gce = get_driver(Provider.GCE)(*args, **kwargs)
-        gce.connection.user_agent_append(
-            '%s/%s' % (USER_AGENT_PRODUCT, USER_AGENT_VERSION),
-        )
-        return gce
+        gce_drivers = []
+        projects = kwargs['project'].split(',')
+        for project in projects:
+            kwargs['project'] = project
+            gce = get_driver(Provider.GCE)(*args, **kwargs)
+            gce.connection.user_agent_append(
+                '%s/%s' % (USER_AGENT_PRODUCT, USER_AGENT_VERSION),
+            )
+            gce_drivers.append(gce)
+        return gce_drivers
 
     def parse_env_zones(self):
         '''returns a list of comma separated zones parsed from the GCE_ZONE environment variable.
@@ -332,6 +354,8 @@ class GceInventory(object):
                             help='List instances (default: True)')
         parser.add_argument('--host', action='store',
                             help='Get all information about an instance')
+        parser.add_argument('--instance-tags', action='store',
+                            help='Only include instances with this tags, separated by comma')
         parser.add_argument('--pretty', action='store_true', default=False,
                             help='Pretty format (default: False)')
         parser.add_argument(
@@ -401,9 +425,10 @@ class GceInventory(object):
         all_nodes = []
         params, more_results = {'maxResults': 500}, True
         while more_results:
-            self.driver.connection.gce_params = params
-            all_nodes.extend(self.driver.list_nodes())
-            more_results = 'pageToken' in params
+            for driver in self.drivers:
+                driver.connection.gce_params = params
+                all_nodes.extend(driver.list_nodes())
+                more_results = 'pageToken' in params
         return all_nodes
 
     def group_instances(self, zones=None):
@@ -422,6 +447,18 @@ class GceInventory(object):
             # If the instance_states list is _populated_ then check the current
             # state against the instance_states list
             if self.instance_states and not node.extra['status'] in self.instance_states:
+                continue
+
+            # This check filters on the desired instance tags defined in the
+            # config file with the instance_tags config option, env var GCE_INSTANCE_TAGS,
+            # or as the cli param --instance-tags.
+            #
+            # If the instance_tags list is _empty_ then _ALL_ instances are returned.
+            #
+            # If the instance_tags list is _populated_ then check the current
+            # instance tags against the instance_tags list. If the instance has
+            # at least one tag from the instance_tags list, it is returned.
+            if self.instance_tags and not set(self.instance_tags) & set(node.extra['tags']):
                 continue
 
             name = node.name
@@ -476,6 +513,13 @@ class GceInventory(object):
                 groups[stat].append(name)
             else:
                 groups[stat] = [name]
+
+            for private_ip in node.private_ips:
+                groups[private_ip] = [name]
+
+            if len(node.public_ips) >= 1:
+                for public_ip in node.public_ips:
+                    groups[public_ip] = [name]
 
         groups["_meta"] = meta
 
