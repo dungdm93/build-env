@@ -1,0 +1,25 @@
+FROM  openjdk:8-jre-alpine3.7
+LABEL maintainer="Dũng Đặng Minh <dungdm93@gmail.com>"
+
+ENV SONAR_SCANNER_VERSION=3.2.0.1227-linux \
+    SONAR_SCANNER_HOME=/opt/sonar-scanner
+
+RUN set -eux; cd /tmp/; \
+    wget https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip; \
+    \
+    echo "===> Install SonarQube scanner..."; \
+    mkdir -p /opt/; \
+    unzip  sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip;  \
+    mv     sonar-scanner-${SONAR_SCANNER_VERSION}  ${SONAR_SCANNER_HOME}; \
+    ln -sf ${SONAR_SCANNER_HOME}/bin/sonar-scanner /usr/local/bin/sonar-scanner; \
+    sed -i 's/use_embedded_jre=true/use_embedded_jre=false/g' ${SONAR_SCANNER_HOME}/bin/sonar-scanner; \
+    \
+    echo "===> Clean up..."; \
+    rm -rf /tmp/* /var/cache/apk/*
+
+####### INSTRUCTIONS #######
+# Build image:
+# $ docker build -t dungdm93/sonar-scanner:3.2-alpine -f Dockerfile.alpine .
+# Run image:
+# $ docker run -it --rm dungdm93/sonar-scanner:3.2-alpine sh
+############################
