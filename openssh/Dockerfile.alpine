@@ -1,0 +1,20 @@
+# Note: bash:4.4 has a bug that stuck at ssh-add command
+FROM alpine:3.6
+LABEL maintainer="Dũng Đặng Minh <dungdm93@gmail.com>"
+
+RUN apk add -U --no-cache bash
+CMD ["/bin/bash"]
+
+RUN set -eux; \
+    # openssh = openssh-client + openssh-server + openssh-sftp-server
+    apk add -U --no-cache openssh; \
+    rm -rf /var/cache/apk/*
+
+COPY ssh /root/.ssh
+
+####### INSTRUCTIONS #######
+# Build image:
+# $ docker build -t dungdm93/openssh:alpine3.6 -f Dockerfile.alpine .
+# Run image:
+# $ docker run -it --rm --name openssh dungdm93/openssh:alpine3.6 ssh robots@sample.server
+############################
