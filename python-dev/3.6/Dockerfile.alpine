@@ -1,0 +1,25 @@
+# Python docker image with native extensions (gcc)
+FROM  python:3.6-alpine
+LABEL maintainer="Dũng Đặng Minh <dungdm93@gmail.com>"
+
+RUN set -eux; \
+    apk add -U  --no-cache python3-dev; \
+    pip install --no-cache-dir pipenv virtualenv virtualenvwrapper; \
+    apk add -U  --no-cache --virtual .build-dev g++ gmp libffi-dev make; \
+    rm -rf /var/cache/apk/*
+
+RUN set -eux; \
+    apk add -U --no-cache libxml2-dev libxslt-dev; \
+    apk add -U --no-cache unixodbc-dev sqlite-dev mariadb-dev postgresql-dev; \
+    apk add -U --no-cache libjpeg libpng libwebp tiff jpeg-dev openjpeg-dev;  \
+    rm -rf /var/cache/apk/*
+
+# NOTE: pre-install ultra-slow packages
+RUN pip install --no-cache-dir lxml;
+
+####### INSTRUCTIONS #######
+# Build image:
+# $ docker build -t dungdm93/python-dev:3.6-alpine -f Dockerfile.alpine .
+# Run image:
+# $ docker run -it --rm --name python-dev dungdm93/python-dev:3.6-alpine sh
+############################
