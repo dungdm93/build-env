@@ -14,8 +14,11 @@ RUN set -eux; \
     apt-get update; \
     # build-essential = gcc + g++ + make
     apt-get install --no-install-recommends -y \
-        build-essential unixodbc-dev libgmp3-dev libxml2-dev libxslt1-dev; \
+        build-essential freetds-dev unixodbc-dev unixodbc tdsodbc \
+        libgmp3-dev libxml2-dev libxslt1-dev; \
     apt-get clean; rm -rf /var/lib/apt/lists/*;
+
+ADD odbcinst.ini /etc/odbcinst.ini
 
 # NOTE: pre-install ultra-slow packages
 RUN pip install --no-cache-dir lxml;
