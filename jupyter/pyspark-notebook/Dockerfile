@@ -16,17 +16,20 @@ ENV SPARK_VERSION=2.3.2  \
     HADOOP_HOME=/usr/local/hadoop \
     JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
 
-# Some Apache mirror sites:
+# Main Apache mirrors:
 #   * https://apache.org/dist
 #   * https://archive.apache.org/dist
 #   * https://dist.apache.org/repos/dist/release
+# List all Apache mirrors:
+#   * https://apache.org/mirrors
+ARG APACHE_DIST=https://apache.org/dist
 ARG APACHE_MIRROR=https://dist.apache.org/repos/dist/release
 
 RUN set -eux; \
     cd /tmp;  \
-    wget -qO - "${APACHE_MIRROR}/hadoop/common/KEYS" | gpg --import -; \
+    wget -qO - "${APACHE_DIST}/hadoop/common/KEYS" | gpg --import -; \
     wget       "${APACHE_MIRROR}/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz" --progress=bar:force; \
-    wget -qO - "${APACHE_MIRROR}/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz.asc" | gpg --verify - "hadoop-${HADOOP_VERSION}.tar.gz"; \
+    wget -qO - "${APACHE_DIST}/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz.asc" | gpg --verify - "hadoop-${HADOOP_VERSION}.tar.gz"; \
     tar -xzf "hadoop-${HADOOP_VERSION}.tar.gz" -C /usr/local --owner root --group root --no-same-owner; \
     rm  -rf  "hadoop-${HADOOP_VERSION}.tar.gz" "$HOME/.gnupg"; \
     cd /usr/local; \
@@ -34,9 +37,9 @@ RUN set -eux; \
 
 RUN set -eux; \
     cd /tmp;  \
-    wget -qO - "${APACHE_MIRROR}/spark/KEYS" | gpg --import -; \
+    wget -qO - "${APACHE_DIST}/spark/KEYS" | gpg --import -; \
     wget       "${APACHE_MIRROR}/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-without-hadoop.tgz" --progress=bar:force; \
-    wget -qO - "${APACHE_MIRROR}/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-without-hadoop.tgz.asc" | gpg --verify - "spark-${SPARK_VERSION}-bin-without-hadoop.tgz"; \
+    wget -qO - "${APACHE_DIST}/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-without-hadoop.tgz.asc" | gpg --verify - "spark-${SPARK_VERSION}-bin-without-hadoop.tgz"; \
     tar -xzf "spark-${SPARK_VERSION}-bin-without-hadoop.tgz" -C /usr/local --owner root --group root --no-same-owner; \
     rm  -rf  "spark-${SPARK_VERSION}-bin-without-hadoop.tgz" "$HOME/.gnupg"; \
     cd /usr/local; \
