@@ -27,7 +27,7 @@ RUN set -eux; \
     apt-get install -y ansible; \
     \
     echo "===> Installing Apache Libcloud..."; \
-    pip install -U --no-cache-dir apache-libcloud; \
+    pip install -U --no-cache-dir Jinja2 apache-libcloud; \
     \
     echo "===> Clean up..."; \
     apt-get clean; \
