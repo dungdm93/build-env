@@ -1,26 +1,27 @@
-# Source from https://hub.docker.com/r/wernight/kubectl/
-FROM  alpine:3.9
+FROM  ubuntu:18.04
 LABEL maintainer="Dũng Đặng Minh <dungdm93@gmail.com>"
-
-RUN  apk add --update --no-cache curl openssl ca-certificates bash bash-completion gettext
 
 # Install kubectl
 # Note: Kubernetes version may be found on:
 #    https://github.com/kubernetes/kubernetes/releases
-ARG KUBE_VERSION=v1.14.1
+ENV KUBE_VERSION=1.14.1
 RUN set -eux; \
-    curl -L -o /usr/local/bin/kubectl \
-        https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/amd64/kubectl; \
+    apt-get update; \
+    apt-get install -y gnupg openssl ca-certificates apt-transport-https curl bash-completion gettext; \
+    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -; \
+    echo 'deb https://apt.kubernetes.io/ kubernetes-xenial main' > /etc/apt/sources.list.d/kubernetes.list; \
+    apt-get update; \
+    apt-get install -y kubectl=${KUBE_VERSION}-00; \
     echo 'source <(kubectl completion bash)' >> /etc/profile.d/autocomplete.sh; \
-    chmod +x /usr/local/bin/kubectl; \
-    # Basic check it works.
-    kubectl version --client
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+COPY kube_authen /usr/local/bin/
 
-CMD ["/bin/bash"]
+CMD ["/bin/bash", "-l"]
 
 ####### INSTRUCTIONS #######
 # Build image:
-# $ docker build -t dungdm93/kubectl:alpine -t dungdm93/kubectl:1.14-alpine .
+# $ docker build -t dungdm93/kubectl:ubuntu -t dungdm93/kubectl:1.14-ubuntu -f Dockerfile.ubuntu .
 # Run image:
-# $ docker run -it --rm --name kubectl dungdm93/kubectl:alpine
+# $ docker run -it --rm --name kubectl dungdm93/kubectl:ubuntu
 ############################
