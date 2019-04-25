@@ -11,13 +11,12 @@ ARG KUBE_VERSION=v1.14.1
 RUN set -eux; \
     curl -L -o /usr/local/bin/kubectl \
         https://storage.googleapis.com/kubernetes-release/release/${KUBE_VERSION}/bin/linux/amd64/kubectl; \
-    chmod +x /usr/local/bin/kubectl; \
     echo 'source <(kubectl completion bash)' >> /etc/profile.d/autocomplete.sh; \
+    chmod +x /usr/local/bin/kubectl; \
     # Basic check it works.
     kubectl version --client
-COPY kube_authen /usr/local/bin/
 
-CMD ["/bin/bash", "-l"]
+CMD ["/bin/bash"]
 
 ####### INSTRUCTIONS #######
 # Build image:
